@@ -1,0 +1,31 @@
+AIDE（高级入侵检测环境）
+应用场景：作为系统完整性检查工具，定时检查系统关键程序，如PS、crontab等，防止外来入侵者篡改；
+
+实验过程：AIDE的简单应用
+1)安装aide工具包
+yum install aide
+#查看详细信息
+rpm -qi aide
+#查看具体路径
+rpm -ql aide 
+
+2）编辑aide配置文件，定义监控策略
+通过rpm -ql aide，找到aide配置文件路径：/etc/aide.conf 
+1]vim /etc/aide.conf 
+2]清空/boot/开头的其它系统自定义的监控配置策略（vim快捷键d+G即可）
+3]开始编辑自定义监控策略：目标是监控/data/f{1,2}两个文件，同时不监控/data/f3文件
+定义监控策略如下：
+RULE = p+sha1+u+m  #表示监控文件权限、sha1文件完整性校验、u文件所有者、mtime文件修改时间，等等信息有无改动
+调用定义的监控策略：
+/data RULE 
+!/data/f3  #表示不监控f3文件
+
+4]aide --init #生成初始数据库文件，即生成文件的初始相关元信息，用于之后的比对
+              #会生成/var/lib/aide/aide.db.new.gz，将其重命名为aide.db.gz文件，即可用于判断比对
+			  #生产环境中建议将生成的aide.db.gz数据文件存放在统一其它机器上，防止他人篡改
+			  
+5]修改/data/f{1,2}文件的相关元数据信息，如修改文件的属主、属组等等，再通过aide进行比对查看：
+aide --check 
+
+6]可以记录之前的aide数据库信息，查看文件以后有无变化
+重新生成新数据库即可：aide --init或aide --update  #新数据库同样需要重命名为aide.db.gz 

@@ -1,0 +1,14 @@
+1)description
+  把整理过的文本显示在STDOUT，不改变原始文件
+  参考：https://www.cnblogs.com/51linux/archive/2012/05/23/2515299.html
+2)usage
+  sort [options] file(s)
+3)options 
+  -u: 删除输出中的重复行
+  -t c : 使用c做为字段定界符
+  -k 2 : 表示以第二列为基准进行排序
+  -o : 将sort排序后结果写入原文件 ，例如sort -r number.txt -o number.txt 
+  
+  
+
+  

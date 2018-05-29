@@ -1,0 +1,186 @@
+SSH端口转发
+
+外网server<---ssh(telnet)#ssh封装加密--->内网ssh server---ssh端口转发(解封装telnet流量)---内网telnet-server
+内网ssh server在上述过程中充当两个角色：
+1）ssh 服务器端
+2）telnet 客户端
+
+ 
+本地转发
+-L localport:remotehostport sshserver (client端通过自己的本机端口号进行远程通信)
+
+选项：
+ -f 后台启用
+ -N 不打开远程shell，处于等待状态
+
+ssh端口本地转发实验
+应用场景：外地用户，通过企业内部ssh服务器开放的22端口做跳板进而访问企业内部其它服务器
+1.102：client端
+1.104：ssh-server 
+1.105: telnet-server 
+
+1)telnet-server:
+iptables -A INPUT -s 192.168.1.102 -j REJECT #禁止client端直连
+
+2)三台服务器安装并启用telnet服务
+
+#centos7系统启动telnet服务
+systemctl start telnet.socket
+#centos6系统启动telnet服务
+yum -y install telnet-server
+chkconfig telnet on
+service xinetd start 
+
+rpm -ql telnet-server
+
+3）client端：
+开启ssh端口转发：
+ssh -L 9527:192.168.1.105:23(telnet-server ip) 192.168.1.104(ssh-server) #会登陆到ssh-server
+或者也可以
+ssh -L 9527:192.168.1.105:23(telnet-server ip) -Nf 192.168.1.104(ssh-server) #这样client端就不需要
+启用新端口
+
+client端再开一个新窗口：
+telnet 127.0.0.1 9527 #输入ssh-server账号密码，这样会连接到telnet-server上
+
+#centos系统telnet默认禁止通过root账号连接
+#停掉ssh服务（注：centos7系统精简安装没有killall命令的话，可以安装yum install psmisc）
+killall ssh 
+
+#通过ss -tn 可以查看上述连接过程
+
+4）上述整个实验的数据包加密传输过程:
+data <- ->local host:9527<-转换->local host:随机端口<-连接->ssh server:22<--转换->ssh server:随机端口<--传输->telnetserver:23 
+即：当client端telnet 127.0.0.1 9527时，整个数据包的传输过程为：
+1）外网client端的telnet流量监听在9527端口，(通过转换到自己的随机端口),以ssh协议加密传输（封装）的方式发送到内网ssh服务器；
+2）ssh服务器收到client端的流量，同时解封装ssh加密的telnet流量；因为它自己同时也是telnet客户端，所以就以telnet客户端的方式将
+流量发送到telnet服务端；（以ssh server自己本地的随机端口，连接telnet服务器的23端口）
+3）从telnetserver机器上ss -tn查看，只能看到ssh server的连接；
+
+
+
+
+ssh端口转发场景二：就是将上述的client端和ssh server端服务器角色进行了对调
+
+ssh-server(外部网路)---（ssh封装telnet流量）--ssh client(内部网络,实际上，它同时也是telnet客户端)---telnet----telnet-server(内部网络)
+
+在内网ssh client上执行命令：-R sshserverport:remotehost:remotehostport sshserver 
+
+实验二：
+1）在ssh client上执行
+ssh -R 9527（外网client端的源端口号）:192.168.1.105（内网telnetserver）:23 192.168.1.102(外网client端IP) #建立ssh桥梁
+ 
+2）INTERNET机器：ssh-server上
+telnet 127.0.0.1 9527
+3）实验二整个过程数据包加密传输过程：
+data<--->sshserver:9527<--->sshserver:22<--封装telnet流量ssh(telnet)->ssh client:随机端口<--->ssh client:随机端口<--解封装telnet流量->telnetserver:23
+
+ssh动态端口转发(proxy)
+应用场景：
+使用浏览器访问Internet时，使用本机1080端口作为与代理服务器的连接端口，firefox的访问请求被转发到sshserver（代理服务器）上，由sshserver（代理服务器）替之访问internet
+
+实验过程
+client端：1.102
+proxy端：1.104
+server端:1.105
+1）在client端电脑上执行：
+ssh -D 1080 root@192.168.1.104(代理服务器地址) 
+2)在server端执行
+yum -y install httpd
+echo www.google.com > /var/www/html/index.html
+service httpd start 
+3)在client端测试：
+[root@internet ~]# curl --socks5 127.0.0.1:1080 192.168.1.105
+www.google.com
+或者也可以在client端安装图形界面，命令行输入firefox启动浏览器，在"首选项"--"网络"中
+配置本地端口和映射的代理服务器地址，然后浏览器地址栏输入server端IP进行访问测试；
+
+X协议转发（略）
+
+
+ssh服务器端配置文件
+
+Port #改成自定义端口
+
+#生产环境中应将ssh服务监听地址修改为LAN IP ,而不应该时公网IP；centos7修改ssh默认端口前，需停掉selinux
+#查看ssh连接访问日志
+/var/log/secure
+
+#过滤尝试连接本地失败次数3次以上的IP地址
+awk '/Failed password/{ip[($NF-3)++]}END{for(i in ip){if(ip[i]>=3){system("iptables -A INPUT -s " i " -j REJECT")}}}'  /var/log/secure
+
+常用ssh参数
+cat /etc/ssh/sshd_config
+
+LoginGraceTime 2m #2分钟登陆超时时长
+PermitRootLogin yes #是否允许root用户登陆
+man sshd #搜索MaxAuthTries: 密码登陆认证尝试次数失败达到3次，即拒绝登陆；MaxSessions: 一个会话连接中，可以开启多个子会话个数
+AuthorizedKeysFile: 指定公钥文件存放路径
+PasswordAuthentication yes #默认允许通过用户名密码方式连接；基于更安全考虑，也可以设置为NO,这样基于Key验证来进行连接更安全
+ClientAliveInterval: 客户端活动间隔（即客户端连上目标主机后进行操作的间隔），默认0，代表不限制
+ClientAliveCountMax: 默认值为3，表示非活动连接的通知次数
+UseDNS: yes #应该修改为no，即禁用DNS反向解析，加快连接速度
+GSSAPIAuthentication yes #提高速度可修改为no
+Banner /etc/ssh.txt #可以写一些ssh连接的提示信息
+man sshd -->MaxStartups:默认值为10,表示如果10个以内未验证用户的连接，可以支持；但是达到10个以上，会有选择性地抛弃断开部分连接；
+同时将选择性拒绝断开新的连接的30%；
+限制可登陆用户的办法：
+	AllowUsers user1 user2 user3（用户名） 
+	DenyUsers 用户名
+	AllowGroups 组名
+	DenyGroups 组名
+注意：当AllowUsers和DenyUsers中都有同一个用户时，默认会拒绝该用户登陆
+	
+	
+
+应用示例：
+连接到电脑，10s未做任何操作，即断开ssh连接：
+ClientAliveInterval:10
+ClientAliveCountMax:3 
+通过sed命令关闭UseDNS:
+sed -i 's/.*UseDNS.*/UseDNS no/' /etc/ssh/sshd_config
+
+ssh服务的最佳实践（可以写到reset.sh脚本中）
+1）建议使用非默认端口
+2）禁止使用protocol version 1 (在centos6.5系统中，sshd_config配置文件中可修改为Protocol 2)
+   也可通过命令行选项
+   -2:强制使用ssh协议版本2；
+   -4：强制使用IPv4地址（参考：http://blog.51cto.com/lxlxlx/1879390）
+3）限制可登陆用户
+4）设定空闲会话超时时长
+5）利用防火墙设置ssh访问策略
+6）仅监听特定的IP地址
+7）基于口令认证时，使用强密码策略
+8）使用基于密钥的认证
+9）禁止使用空密码
+10）禁止root用户直接登陆
+11）限制ssh的访问频度和并发在线数
+12）经常分析日志
+lastb命令：查看登陆系统失败相关信息，可查看有哪些用户曾尝试连接
+/var/log/btmp #该文件记录了ssh失败登陆的日志信息
+
+#ssh服务是由系统默认的openssh软件包提供的，软件包比较大
+
+dropbear：轻量级开源ssh服务实现工具
+应用场景：当系统cpu内存等配置较低的设备需要用到ssh服务时
+
+源码编译安装dropbear
+1）官网下载源码
+https://matt.ucc.asn.au/dropbear/
+2）安装开发包组：
+yum grouplist
+yum -y install "Development Tools"
+
+3)tar xvf dropbear-*.tar.bz2
+
+4)cd dropbear解压后目录
+cat README #查看说明
+cat INSTALL #查看安装方式
+./configure --help #查看编译选项 
+
+5）开始编译
+./configure --prefix=/data/dropbear/ --sysconfdir=/etc/dropbear/ #生成makefile文件，同时会检查需要安装哪些依赖包
+#编译相应的软件
+make PROGRAMS="dropbear dbclient dropbearkey dropbearconvert scp"
+
+6)dropbear具体使用可回看第23天视频<<SSH服务和安全>>，不做重点介绍

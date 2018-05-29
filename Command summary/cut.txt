@@ -1,0 +1,9 @@
+1)usage
+cut [OPTION]... [FILE]...
+2)options
+-d DELIMITER #指明分隔符，如cut -d' '
+-f FILEDS: 
+  #: 第#个字段 
+-c: 按字符切割 #如cut -c2-5 /usr/share/dict/words
+
+  

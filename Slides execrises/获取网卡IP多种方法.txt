@@ -1,0 +1,25 @@
+1.找出ifconfig "网卡名" 命令结果中本机的IPV4地址
+方法一：
+ifconfig ens33 | head -n 2 | tail -n 1 |cut -c14-27 #cut -c表示按字符切割
+
+2.查出分区空间使用率的最大百分比值
+方法一：
+df |tail -7 |tr -s ' ' |cut -d' ' -f5 |sort -nr |head -1
+
+3.查出用户UID最大值的用户名、UID及shell类型
+方法一：
+cat /etc/passwd |tail -1 |cut -d: -f1,3,7 
+
+4.查出/tmp的权限，以数字方式显示
+方法一：
+stat /tmp/ |head -4 |tail -1|tr '(/)' ':' |tr ' ' ':' |tr -s ':' |cut -d: -f2
+亦可简化为：
+stat /tmp/ |head -4 |tail -1 |tr '(/ )' ':' |tr -s ':'|cut -d: -f2
+参考:https://blog.csdn.net/dmzing/article/details/52404496
+
+5.统计当前连接本机的每个远程IP的连接数，并按从大到小排序
+方法一： 
+netstat -nt |tr -s ' '|cut -d' ' -f5|cut -d: -f1|tail -1 |sort -nr |uniq -c 
+      1 192.168.1.103
+	  
+	  

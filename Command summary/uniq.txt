@@ -1,0 +1,22 @@
+1)description
+  从输入中删除前后相接的重复的行
+2)usage
+  uniq [OPTION]... [FILE]...
+3)options
+  -c: 显示每行重复出现的次数
+  -d: 仅显示重复过的行
+  -u: 仅显示不曾重复的行
+  注：连续且完全相同方位重复
+  常和sort命令一起使用：sort userlist.txt |uniq -c 
+
+
+
+
+
+
+
+
+
+
+
+  

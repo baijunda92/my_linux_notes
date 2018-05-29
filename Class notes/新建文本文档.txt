@@ -1,0 +1,234 @@
+question:
+how to use tar -tvf?
+
+review:
+how to make ks.cfg files?(system answer files)
+
+centos7:
+rpm -q syslinux 
+if not installed:
+yum -y install syslinux 
+
+tools to make *.iso files: do not support big files
+isohybrid boot.iso 
+dd if=boot.iso of=/dev/sdb 
+
+dhcp service :
+1)工作原理？
+client---discover--->server
+server----offer--->client 
+client---dhcp request--->server
+server---ack packages--->client 
+
+tools: 
+dhclient (默认工作在后台)
+
+You can have a look about dhcp work process:
+dhclient -d (auto receive ip address)
+
+renewal: define the next time 续租时间，一般为总租期时间的一半
+
+/var/lib/dhclient/ dhclient.leases 记录dhcp server 地址分配相关信息；
+
+windows下dhcp立即续租
+ipconfig/renew 
+
+windows下释放地址：
+ipconfig/release
+然后重新申请新地址：
+ipconfig/renew 
+
+dhcp的整个工作过程基于广播机制，所以要求dhcp server和client在同一网段
+
+tools
+how to use wireshark 
+
+dhcp client port: 67
+dhcp server port: 68
+
+如何实现dhcp的跨网段
+方式一：购买支持RFC1542标准的router,该router会允许特定的dhcp 广播报文通过
+方式二：配置dhcp中继代理
+ 1]配置router充当dhcp中继代理
+
+相关协议：
+Arp
+rarp
+
+dhcp实现
+Linux dhcp协议实现程序：dhcp,dnsmasq(dhcp,dns),dnsmasq是一个简化版的小工具
+
+
+Experiment: Linux dhcp server configure
+
+注意：
+虚拟机做DHCP实验时，网卡模式尽量设置为非桥接模式，同时去掉虚拟机自带的DHCP功能
+
+step: stop the selinux,iptables 
+1.安装包
+yum info dhcp 
+#安装前查看包文件列表
+rpm -ql dhcp
+yum -y install dhcp 
+
+
+2.启服务
+3.修改配置文件
+4.reload or restart service 
+5.test 
+
+PXE网卡会内置tftp客户端
+
+tftp服务配置（轻量级文件传输协议）
+yum install tftp-server 
+centos7:
+systemctl start tftp.service 
+systemctl stop tftp.service (但是仍会处于监听状态，当用户访问会自动启动服务tftp.socket,tftp.service 和socket是相分离的)
+客户端安装：
+yum -y install tftp 
+
+客户端访问测试：
+tftp server端IP
+
+
+centos6:tftp在centos6上是非独立服务，受xinetd服务控制
+yum install tftp-server 
+chkconfig tftp on ; service xinetd restart 
+
+ss -nutlp 
+
+实验：tftp服务
+1. yum install tftp-server 
+2. systemctl start tftp.socket
+3. systemctl enable tftp 
+4. client access to test 
+
+rpm -q syslinux(包含pxelinux.0文件)
+
+实验：实现centos7 pxe安装
+0.stop selinux firewall
+1.install package 
+yum install dhcp tftp-server httpd syslinux 
+systemctl enable httpd dhcpd tftp.socket
+systemctl start httpd  
+
+2.configure yum 
+mkdir /var/www/html/centos/{6,7}/ -pv 
+vim /etc/fstab 
+/dev/sr0 /var/www/html/centos/7 iso9660 defaults 
+mount -a 
+
+3.prepare ks files 
+cd /var/www/html 
+mkdir ksdir/{6,7} -pv 
+cp /root/anaconda-ks.cfg /var/www/html/ksdir/7/ks7_desktop.cfg 
+chmod +r /var/www/html/ksdir/7/ks7_desktop.cfg 
+vim /var/www/html/ksdir/7/ks7_desktop.cfg 
+... 此处略去1万字...
+
+4.configure dhcp service 
+rpm -ql dhcpd 
+/usr/share/doc/dhcp-4.2.5/dhcpd.conf.example /etc/dhcp/dhcpd.conf 
+vim /etc/dhcp/dhcpd.conf 
+...此处略去2万字...
+systemctl start dhcp 
+
+5.prepare pxe 相关 files 
+...此处略去3万字...
+
+
+6.configure tftp service 
+
+configure dhcp service 
+
+yum -y install system-config-kickstart 
+
+centos6实现pxe安装
+
+rpm -ql syslinux-nonlinux 
+yum history
+
+
+不同版本的实现
+yum -y install httpd dhcp tftp-server syslinux
+
+echo '---' > /sys/class/scsi_host/host0/scan 
+
+systemctl enable httpd dhcpd tftp.socket 
+systemctl start httpd tftp.socket 
+rpm -ql
+cp /usr/share.../dhcp.conf.sample /etc/dhcp/dhcpd/dhcp.conf 
+
+subnet 192.168.30.0 netmask 255.255.255.0{
+	range 192.168.30.10 192.168.30.200;
+	next-server 192.168.30.17;
+	filename "pxelinux.0";
+}
+
+systemctl start dhcpd 
+ss -ntlup
+
+cd /var/www/html
+ls
+mkdir centos/{6,7} -pv 
+echo /dev/sr0 /var/www/html/centos/7 iso9660 defaults  0 0 >> /etc/fstab 
+echo /dev/sr1 /var/www/html/centos/6 iso9660 defaults  0 0 >> /etc/fstab 
+mount -a 
+df 
+
+mkdir ksdir
+cd ksdir/ 
+ls
+cp ks6_mini.cfg ks7_desktop.cfg . 
+之后修改ks文件 
+
+cd /var/lib/tftpboot 
+mkdir pxelinux.cfg 
+mkdir centos{6,7}
+cp /var/www/html/centos/6/isolinux/{initrd.img,vmlinuz} centos6/
+cp /var/www/html.... centos7/
+
+cp /var/www/html/centos/7/isolinux/isolinux.cfg pxelinux.cfg/default 
+rpm -q syslinux 
+cp /usr/shar/syslinux/menu.c32 .
+vim pxelinux.cfg/default 
+cp /usr/share/syslinux/pxelinux.0 . 
+
+Cobbler:
+yum install cobbler dhcp 
+systemctl enable cobblerd dhcpd httpd tftp 
+systemctl start cobblerd httpd tftp.socket 
+ss -ntulp 
+cobbler check 
+cobbler get-loaders 
+
+实验：cobbler的实现
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,1 @@
+There is record some small exercies in the slides.

@@ -1,0 +1,73 @@
+安全相关：TCP_wrappers,工作在传输层的TCP协议
+功能：对有状态连接的特定服务进行安全检测并实现访问控制,类似于防火墙功能
+特点：以库文件的形式事先
+判断服务程序是否能由tcp_wrappers进行安全控制:
+ldd /PATH/TO/PROGRAM|grep libwrap.so 
+
+centos6上查看非独立服务：chkconfig --list ,最下面的xinetd based services
+
+对应配置文件：/etc/hosts.allow、/etc/hosts.deny
+hosts.allow: 白名单，但带有拒绝功能
+hosts.deny: 黑名单，只能配置拒绝功能
+
+示例：tcp_wrappers拒绝ssh访问
+which sshd
+vim /etc/hosts.deny 
+sshd:192.168.30.7  #拒绝30.7主机对当前主机的ssh访问（包含监听在当前主机所有IP上的SSH服务）
+若当前主机上有多个IP地址时：
+vim /etc/hosts.deny
+sshd@192.168.30.5:192.168.30.7  #仅拒绝30.7主机访问30.6上的ssh服务
+
+配置语法：
+daemon_list@host:client_list [:options:option...]
+Daemon_list@host格式
+  1）单个应用程序的二进制文件名（可通过rpm -ql查看），而非对应的服务名，如vsftpd 
+  2）以逗号或空格分隔应用程序文件名列表，如sshd,vsftpd
+
+客户端client_list格式：
+  1）以逗号或空格分开的客户端列表
+  2）基于IP地址：192.168.10.1 192.168.1.(代表当前网段)
+  3）基于网络/掩码：192.168.0.0/255.255.255.0 
+  4）基于net/prefixlen: 192.168.1.0/24(centos7，具体可以查看man hosts_access)
+  5）内置ACL关键字：ALL(代表所有主机)... man hosts_access可以查看具体内容 
+
+[:options:option...]格式:
+EXCEPT(排除)用法示例:
+vsftpd:172.16. EXCEPT 172.16.100.0/24 EXCEPT 172.16.100.1  
+  
+[:options]选项:
+  1)查看帮助: man 5 hosts_options
+  2)deny 主要用在/etc/hosts.allow定义"拒绝"规则
+    如:vsftpd:172.16. :deny 
+  3)allow主要用在/etc/hosts.deny定义"允许"规则
+    如:vsftpd:172.16. :allow 
+	
+spawn用法:spawn 会激活触发执行另一个命令 
+示例:记录日志
+vim /etc/hosts.allow 
+sshd:ALL:spawn echo AT `date + %%F %%T` login from client %c to server	%s >> /data/sshd.log  
+
+twist用法:twist会替换掉它之前的命令操作转而去执行twist后面指定的命令
+vim /etc/hosts.allow
+sshd:ALL:twist /bin/echo "deny access,go away" #即当所有主机SSH访问当前主机时,会收到twist后面的提示(通过ssh -v 查看)并拒绝SSH登陆
+冒号具有特殊含义,使用时需要进行转义:
+sshd: ALL :spawn echo "$(data +%%F) login attempt from client\: %c to server\: %s,%d" >> /var/log/sshd.log
+ 
+
+当sshd:192.168.30.7同时配置在黑、白名单中时：会允许30.7访问，即：白名单优先级高；
+内在机制：会先查看hosts.allow文件，若对应项允许访问，即对应项在deny文件中的配置会被忽略;
+若黑、白名单中没有对应项的配置，默认会允许对应项的相关访问
+
+测试工具:
+tcpdmatch [-d] daemon[@host] client 
+  -d 本地测试当前目录下的hosts.allow 和hosts.deny文件效果
+cp /etc/hosts.{allow,deny} /data
+cd /data 
+tcpdmatch  -d sshd 192.168.30.5 #验证30.5主机访问当前主机时,根据当前hosts.allow和hosts.deny文件中的配置,最终的访问效果
+
+练习题:见课件
+
+注:tcp_wrappers常用于centos6,因为centos7大部分服务受systemd控制;
+而systemd中没有支持使用tcp_wrappers的libwrap.so库文件
+telnet服务在centos6中受xinetd服务控制管理
+而在centos7中为独立服务:telnet.socket 
