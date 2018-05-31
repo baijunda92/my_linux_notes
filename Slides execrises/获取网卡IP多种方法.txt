@@ -22,4 +22,65 @@ stat /tmp/ |head -4 |tail -1 |tr '(/ )' ':' |tr -s ':'|cut -d: -f2
 netstat -nt |tr -s ' '|cut -d' ' -f5|cut -d: -f1|tail -1 |sort -nr |uniq -c 
       1 192.168.1.103
 	  
+grep及正则表达式部分
+1.显示/proc/meminfo文件中以大小s开头的行
+方法一：cat /proc/meminfo |grep "^[s|S]"
+方法二：cat /proc/meminfo |grep "^\(s\|S\)"
+方法三：cat /proc/meminfo |grep -E "^(s|S)"
+
+2.显示/etc/passwd文件中不以/bin/bash结尾的行
+方法一：cat /etc/passwd |grep -v "/bin/bash$"
+
+3.显示用户rpc默认的shell程序
+方法一：cat /etc/passwd | grep -w "^rpc" |cut -d: -f7
+
+4.找出/etc/passwd中的两位或三位数
+方法一：cat /etc/passwd |grep -o "[[:digit:]]\{2,3\}"
+补充：grep -o 表示只显示匹配到的字符串（因为grep默认是贪婪匹配）
+      grep -w 则表示匹配整个单词
+
+5.显示CentOS7的/etc/grub2.cfg文件中，至少以一个空白字符开头且后面有非空白字符的行
+方法一：grep "^[[:space:]][^[:space]]" /etc/grub2.cfg 
+
+6.找出 "netstat -tan"命令结果中以LISTEN后跟任意多个空白字符结尾的行
+方法一: netstat -tan |grep ".*LISTEN[[:space:]]*$"
+
+7.显示CentOS7上所有系统用户的用户名和UID
+方法一： grep -w "[[:digit:]]\{1,3\}" /etc/passwd |cut -d: -f1,3
+方法二：扩展正则：grep -E -w "[[:digit:]]{1,3}" /etc/passwd |cut -d: -f1,3 
+
+8. 添加用户bash、testbash、basher、sh、nologin(其shell为/sbin/nologin),找出/etc/passwd用户名和shell同名的行
+知识点：grep中的后项引用
+方法一：grep "^\(.*\):.*\1$" /etc/passwd 
+方法二：grep -E "^(.*):.*\1$" /etc/passwd 
+方法三：考虑能否通过sed来实现？
+
+9.利用df和grep,取出磁盘各分区利用率，并从大到小排序（注意考虑到云主机情况）
+知识点：grep中的"或者"（相当于逻辑或）用法
+grep基本正则示例：\(C\|c\)at : 即表示Cat或cat 
+grep扩展正则示例：(C|c)cat
+方法一：df | grep "\(/dev/sd\|/dev/vd\)" |tr -s ' ' |cut -d' ' -f5 |sort -nr 
+方法二：df | grep -E "(/dev/sd|/dev/vd)" |tr -s ' ' |cut -d' ' -f5 |sort -nr 
+方法三：df | grep -E "(/dev/sd|/dev/vd)" |grep -o "[[:digit:]]\{1,3\}%" |grep -o "[[:digit:]]\+" |sort -nr 
+
+10.显示三个用户root、mage、wang的UID和默认shell 
+方法一：cat /etc/passwd | grep "\(root\|mage\|wang\)" |cut -d: -f1,7
+方法二：cat /etc/passwd | grep -E "(root|mage|wang)" |cut -d: -f1,7
+
+
+
+
+
+
+
+
+
+
+
+	  
+	  
+	  
+ 
+	  
+	  
 	  
