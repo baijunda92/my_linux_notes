@@ -1,0 +1,178 @@
+Mysql数据库
+
+
+关系型数据库基础
+安装mysql
+管理数据库和表
+用户和权限管理
+函数和存储过程
+MySQL架构
+存储引擎
+服务器选项，系统和状态变量
+优化查询和索引管理
+锁和事物管理
+日志管理
+备份还原
+MySQL集群
+
+关系型数据库基础 
+主键：关系型数据库中的一条记录中有若干个属性，若其中某一个属性或属性组能唯一标识一条记录，则该属性组就可以称为一个
+主键；对应的列定义为主键后，该列中不能出现相同字段
+例如：
+学生表（学号，姓名，性别，班级）
+其中，每个学生的学号是唯一的，学号就是一个主键
+
+课程表（课程编号，课程名，学分）
+其中课程编号是唯一的，课程编号就是一个主键
+
+成绩表（学号，课程号，成绩）
+成绩表中单一一个属性无法唯一标识一条记录，学号和课程号的组合才可以唯一标识一条记录，所以学号和课程号的属性组是一个主键
+成绩表中学号不是成绩表的主键，但它和学生表中的学号相对应，并且学生表中的学号是学生表的主键，则称成绩表中的学号是学生表的外键
+同理，成绩表中的课程号是课程表的外键
+参考：http://www.cnblogs.com/longyi1234/archive/2010/03/24/1693738.html
+
+外键：用于在两表之间建立关系，需要指定引用主表的那一列
+
+唯一键和主键区别：唯一键允许为空，而主键不能为空
+复合主键：由多个字段组合成（属性组）
+
+事物：多个对数据库的操作被当作一个整体对待；要么都做，要么都不做；
+rollback：回滚，例如重启系统处理不完整事物
+
+脏数据：事物没有执行完成时的数据；即处于中间状态的，不确定的数据
+事物的基本特性：一致性、原子性、隔离性、持久性
+
+E-R模型
+实体-联系模型（简称E-R模型），提供不受任何DBMS约束的面向用户的表达方法，在数据库设计中被广泛应用于数据建模的工具
+
+
+一对一
+一对多
+多对多
+
+范式：不是绝对标准，有时为了高性能会违反范式
+1NF：第一范式，即属性的原子约束性，属性具有原子性，即属性不能往下再分；比如人作为一个实体，姓名作为人的一个属性，若
+     系统需要把人的姓和名分开记录，那么就必须把姓作为人的一个属性，名作为人的一个属性
+
+2NF：第二范式，记录唯一性约束，要求记录有唯一标识，即数据库表中的记录不能重复，至少得设一个标示字段作为主键；属性完全依赖于主键
+
+3NF：第三范式，即数据不能冗余，字段不能是其他任何字段派生而来，数据不重复保存；
+一般情况下，一范式和二范式是必须做到的，三范式看具体情况
+
+SQL：Structure Ouery Language，结构化查询语言
+
+S：server,监听于套接字（socket,ip+port），接收并处理客户端的应用请求
+C: client
+   客户端程序接口：CLI GUI
+   应用编程接口：ODBC、JDBC
+
+基本概念
+索引：将表中的一个或多个字段中的数据复制一份另存，并按特定次序排序存储
+关系运算：  
+  选择：挑选出符合条件的行
+  投影：挑选出需要的字段
+  连接：表间字段的关联
+
+mysql安装
+centos6
+#查看MySQL客户端包
+rpm -qf mysql
+
+#MySQL下执行Linux命令
+system #execute a system shell command 
+system hostname 
+\! ls /data
+\! rm -rf /data*  
+
+#查看系统状态信息
+status
+
+centos7
+
+yum install mariadb-server 
+rpm -qf /usr/bin/mysql 
+
+#mysql.socket文件
+
+\s 等价于status命令
+
+/var/lib/mysql #存放数据库文件
+select * from user\G;
+
+默认会以mysql 的root账户登陆数据库
+
+
+select user,password,host from user 
+mysql_secure_installation #一般安装完mysql跑一下该脚本，用于安全加强
+
+mysql -uroot -pcentos
+select user();
+show databases;
+use mysql 
+select user,host,password from user; 
+默认情况下，MySQL不允许远程登陆
+
+mysql用户账号由两部分组成：user=username@host
+即：MySQL用户名是由用户名+主机地址（或主机名）组成
+host支持使用通配符
+  % 匹配任意长度的任意字符
+    172.20.0.0/255.255.0.0 或172.20.%.%
+
+  _ 匹配任意单个字符 
+	
+
+MySQL程序
+  1]客户端程序 
+  mysql：交互式CLI工具
+  mysqldump:基于mysql协议向mysqld发起查询请求，并将查得的所有数据转换成insert等写操作语句保存于文本文件中
+  mysqladmin: 基于mysql协议管理mysqld
+  mysqlimport：数据导入工具 
+
+myisam存储引擎的管理工具：
+  myisamchk:检查myisam库
+
+服务器端程序
+  mysqld_safe
+  mysqld 
+  mysqld_multi: 多实例
+  
+getent passwd mysql 
+
+cat > test.sql
+create database testdb2;
+show databases;
+ctrl +cat
+mysql -uroot -pcentos < test.sql 
+  
+mysql -uroot -pcentos
+source test.sql 
+
+mysql -uroot -pcentos -e "show databases;drop testdb2" #-e选项可执行多条SQL命令
+
+MySQL本机通讯 
+  unix sock: 
+
+#查看当前系统有无安装数据库
+rpm -q mariadb-server 
+
+实验：centos7.4二进制安装mariadb-10.2.15-linux-x86_64.tar.gz 
+
+useradd -r -d /data/mysqldb -s /sbin/nologin mysql 
+getent passwd mysql 
+id mysql 
+tar xf mariadb-server-*.tar.gz -C /usr/local 
+ln -s mariadb-*/ mysql 
+cd /usr/local; chown -R root: mysql/
+ 
+
+
+
+
+
+
+
+
+
+
+
+
